@@ -232,7 +232,7 @@ def page_submit_complaint():
 
     complaint_text = st.text_area("Your Complaint")
     complaint_priority = st.selectbox("Priority", ["Low", "Medium", "High"])
-    complaint_status = st.selectbox("Status", ["Pending", "Resolved"])
+    complaint_status = "Pending"
 
     if st.button("Submit Complaint"):
         new_id = generate_new_id(complaints_df, "complaint_id", "C")
@@ -402,7 +402,6 @@ def page_vendor_dashboard():
     st.subheader("➕ Add New Vendor")
     with st.form("add_vendor_form", clear_on_submit=True):
         new_vendor_name = st.text_input("Vendor Name")
-        new_vendor_fssai = st.text_input("FSSAI Code (10 digits)")
         new_vendor_state = st.text_input("State")
         submit_vendor = st.form_submit_button("Add Vendor")
 
@@ -410,8 +409,6 @@ def page_vendor_dashboard():
         # ✅ Validation checks
         if not new_vendor_name.strip():
             st.error("⚠️ Vendor Name is required.")
-        elif not new_vendor_fssai.strip().isdigit() or len(new_vendor_fssai.strip()) != 10:
-            st.error("⚠️ FSSAI Code must be exactly 10 digits.")
         elif not new_vendor_state.strip():
             st.error("⚠️ State is required.")
         else:
@@ -420,7 +417,6 @@ def page_vendor_dashboard():
             vendors_df.loc[len(vendors_df)] = {
                 "vendor_id": new_vendor_id,
                 "vendor_name": new_vendor_name.strip(),
-                "fssai_code": new_vendor_fssai.strip(),
                 "state": new_vendor_state.strip()
             }
             save_data(vendors_df, VENDORS_FILE)
@@ -459,7 +455,6 @@ def page_vendor_dashboard():
 # ---------- Analytics Page ----------
 import plotly.express as px
 # ---------- Analytics Page ----------
-
 def page_analytics():
     st.subheader("📈 Analytics Dashboard")
 
@@ -479,9 +474,8 @@ def page_analytics():
         {"label": "Total Users", "value": total_users, "color": "#A29BFE"}
     ]
 
-    # --- Display KPI cards with better spacing ---
+    # --- Display KPI cards ---
     cols = st.columns(len(kpis))
-
     for col, kpi in zip(cols, kpis):
         col.markdown(f"""
             <div style="
@@ -501,26 +495,39 @@ def page_analytics():
             </div>
         """, unsafe_allow_html=True)
 
-    # --- Top 5 products by complaints ---
-    if not complaints_df.empty:
-        top_products = complaints_df.groupby("product_id").size().sort_values(ascending=False).head(5)
-        top_products = top_products.reset_index().merge(products_df[['product_id', 'product_name']], on='product_id')
-        fig1 = px.bar(top_products, x='product_name', y=0, color='product_name', title="Top 5 Products by Complaints")
-        st.plotly_chart(fig1, use_container_width=True)
-
-    # --- Top 5 vendors by complaints ---
-    if not complaints_df.empty:
-        top_vendors = complaints_df.groupby("vendor_id").size().sort_values(ascending=False).head(5)
-        top_vendors = top_vendors.reset_index().merge(vendors_df[['vendor_id', 'vendor_name']], on='vendor_id')
-        fig2 = px.bar(top_vendors, x='vendor_name', y=0, color='vendor_name', title="Top 5 Vendors by Complaints")
-        st.plotly_chart(fig2, use_container_width=True)
-
     # --- Top 5 products by rating ---
     if not rexiews_df.empty:
         top_rated = rexiews_df.groupby("product_id")['rating'].mean().sort_values(ascending=False).head(5)
         top_rated = top_rated.reset_index().merge(products_df[['product_id', 'product_name']], on='product_id')
         fig3 = px.bar(top_rated, x='product_name', y='rating', color='product_name', title="Top 5 Products by Rating")
         st.plotly_chart(fig3, use_container_width=True)
+
+    # ==============================
+    # --- Predictive Analytics ---
+    # ==============================
+    st.markdown("## 🔮 Predictive & Progressive Analytics")
+
+    # 1️⃣ Predict Complaints by State (Top 6)
+    if "state" in vendors_df.columns:
+        state_counts = vendors_df["state"].value_counts().reset_index()
+        state_counts.columns = ["state", "complaint_count"]
+
+        fig1 = px.bar(state_counts.head(6), x="state", y="complaint_count",
+                      title="Top 6 States by Complaints (Predictive Trend)")
+        st.plotly_chart(fig1, use_container_width=True)
+
+    # 2️⃣ Predict Complaint Resolution Likelihood by Vendor Rating
+    if "rating" in rexiews_df.columns and "vendor_id" in complaints_df.columns:
+        merged_df = complaints_df.merge(vendors_df, on="vendor_id", how="left")
+        merged_df = merged_df.merge(rexiews_df, on="vendor_id", how="left")
+
+        if not merged_df.empty:
+            vendor_resolution = merged_df.groupby("vendor_name")["rating"].mean().reset_index()
+            vendor_resolution = vendor_resolution.sort_values("rating", ascending=False).head(6)
+
+            fig2 = px.bar(vendor_resolution, x="vendor_name", y="rating",
+                          title="Top 6 Vendors Likely to Resolve Complaints")
+            st.plotly_chart(fig2, use_container_width=True)
 
     # --- Complaint Categorization (LDA) ---
     st.subheader("📂 Complaint Categorization (NLP)")
@@ -637,7 +644,7 @@ def page_powerbi():
     st.markdown("Here is the Power BI report screenshot:")
 
     # Build safe path dynamically
-    image_path = os.path.join(os.getcwd(), "Images", "bgbi.png")
+    image_path = os.path.join(os.getcwd(), "Images", "bgg.JPG")
 
     if os.path.exists(image_path):
         st.image(image_path, caption="Power BI Screenshot", use_container_width=True)
