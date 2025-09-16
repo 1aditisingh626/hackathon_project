@@ -50,6 +50,10 @@ h1,h2,h3,h4,h5,h6 { color:#212121; font-weight:700; }
 .stButton>button:hover {
     background: linear-gradient(90deg, #616161, #9e9e9e); transform: scale(1.03);
 }
+/* Specific Style for "Created by" Text */
+.created-by-text {
+    color: black;
+}
 </style>
 """
 
